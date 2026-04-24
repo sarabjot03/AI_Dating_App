@@ -1,0 +1,24 @@
+import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
+
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { MeService } from './me.service';
+
+@UseGuards(JwtAuthGuard)
+@Controller('me')
+export class MeController {
+  constructor(private readonly meService: MeService) {}
+
+  @Get('profile')
+  getProfile(@Req() req: { user: { userId: string } }) {
+    return this.meService.getProfile(req.user.userId);
+  }
+
+  @Patch('profile')
+  updateProfile(
+    @Req() req: { user: { userId: string } },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.meService.upsertProfile(req.user.userId, dto);
+  }
+}

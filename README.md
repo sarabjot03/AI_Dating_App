@@ -71,6 +71,28 @@ npm run start
 
 Press `i` for iOS simulator, `a` for Android emulator, or scan the QR code with Expo Go on a device (use the LAN URL in `.env` for real devices).
 
+### Let a co-founder test from another device
+
+If your co-founder is on the **same Wi-Fi**, this is enough:
+
+1. In `apps/mobile/.env`, set:
+   - `EXPO_PUBLIC_API_URL=http://<your-laptop-LAN-IP>:3000`
+2. Start API from `services/api`: `npm run start:dev`
+3. Start Expo from `apps/mobile`: `npx expo start --host lan`
+4. Co-founder scans the Expo QR in Expo Go.
+
+If your co-founder is on a **different network**, tunnel both app bundle + API:
+
+1. Start API locally: `cd services/api && npm run start:dev`
+2. Expose API with a tunnel (example via ngrok):
+   - `ngrok http 3000`
+   - copy HTTPS URL, e.g. `https://abc123.ngrok-free.app`
+3. Set `apps/mobile/.env`:
+   - `EXPO_PUBLIC_API_URL=https://abc123.ngrok-free.app`
+4. Start Expo tunnel:
+   - `cd apps/mobile && npx expo start --tunnel`
+5. Share the Expo QR/link with your co-founder.
+
 ## 4) Auth flow (what to try)
 
 1. Open the app → **Continue with phone** → enter a valid 10-digit Indian mobile (starts with 6–9).
@@ -82,6 +104,60 @@ Sign out from **Profile** revokes the refresh token on the server and clears loc
 ## Security
 
 See `SECURITY.md`. Use strong `JWT_SECRET`, HTTPS in production, and a real SMS provider for OTP before public launch.
+
+## Remote testing without your laptop running
+
+To let your co-founder use the app when your laptop is off, you need:
+
+1. API deployed to cloud (this repo includes `render.yaml` for Render).
+2. Cloud PostgreSQL (Neon/Supabase/Render Postgres/Railway Postgres).
+3. Mobile app distributed as a real installable build via EAS (not Expo dev server).
+
+### A) Deploy API to Render
+
+1. Push this repo to GitHub.
+2. In Render, create a new Blueprint/Web Service from this repo.
+3. Render will read `render.yaml` and create `spark-api`.
+4. Set required env vars in Render:
+   - `DATABASE_URL` (cloud Postgres URL)
+   - `JWT_SECRET` (long random string)
+5. Deploy and verify:
+   - `https://<your-render-domain>/v1/health`
+
+### B) Build installable app for co-founder (EAS)
+
+From `apps/mobile`:
+
+```bash
+npm install
+npx eas login
+npx eas build:configure
+```
+
+Set production API URL for EAS build:
+
+```bash
+npx eas secret:create --scope project --name EXPO_PUBLIC_API_URL --value https://<your-render-domain>
+npx eas secret:create --scope project --name EXPO_PUBLIC_APP_ENV --value production
+```
+
+Build APK (Android internal testing):
+
+```bash
+npx eas build --platform android --profile preview
+```
+
+Share the generated install link with your co-founder.
+
+### Will this cost money?
+
+- **Can start at near-zero cost** on free tiers (Render/Neon/EAS have starter/free options).
+- **Possible charges** can start once usage grows or if free limits are exceeded:
+  - API host sleeps or has quotas on free plans.
+  - Managed Postgres free tier has storage/compute limits.
+  - EAS free usage has limited build minutes/concurrency.
+
+For Phase 1 testing, free tiers are usually enough. Upgrade later when traffic increases.
 
 ## Project layout
 
