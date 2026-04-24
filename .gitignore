@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment (never commit secrets)
+.env
+.env.local
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+services/*/.env
+services/*/.env.local
+
+# Expo
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/web-build/
+
+# Native
+apps/mobile/android/
+apps/mobile/ios/
+*.jks
+*.p12
+*.mobileprovision
+
+# Build
+services/api/dist/
+coverage/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Misc
+*.pem
