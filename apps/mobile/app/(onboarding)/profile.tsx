@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -18,7 +19,7 @@ import { buildProfileFromAnswers, useOnboarding } from '@/contexts/onboarding-co
 import { Brand } from '@/constants/theme';
 
 export default function ProfilePreviewScreen() {
-  const { answers, setProfileDraft, completeOnboarding } = useOnboarding();
+  const { answers, setProfileDraft, completeOnboarding, saveToServer } = useOnboarding();
 
   const [bio, setBio] = useState('');
   const [p0, setP0] = useState('');
@@ -48,6 +49,12 @@ export default function ProfilePreviewScreen() {
       { question: draft.prompts[2].question, answer: p2.trim() },
     ];
     await setProfileDraft(draft);
+    try {
+      await saveToServer({ answers, profileDraft: draft, onboarded: true });
+    } catch {
+      Alert.alert('Could not sync profile', 'Please check your connection and try again.');
+      return;
+    }
     await completeOnboarding();
     router.replace('/');
   }

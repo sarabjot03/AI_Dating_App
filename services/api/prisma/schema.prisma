@@ -10,6 +10,13 @@ datasource db {
 model User {
   id             String         @id @default(cuid())
   phoneE164      String         @unique
+  intent         String?
+  city           String?
+  energy         String?
+  aboutLine      String?
+  bio            String?
+  promptsJson    Json?
+  onboardedAt    DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   refreshTokens  RefreshToken[]

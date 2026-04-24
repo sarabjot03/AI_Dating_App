@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { fetchMyProfile, upsertMyProfile } from '@/lib/profile-api';
+import { useAuth } from '@/contexts/auth-context';
+
 const KEY_COMPLETE = '@spark/onboarding_complete';
 const KEY_ANSWERS = '@spark/questionnaire_answers';
 const KEY_PROFILE = '@spark/profile_draft';
@@ -17,6 +20,12 @@ export type ProfileDraft = {
   prompts: { question: string; answer: string }[];
 };
 
+type RemoteProfilePayload = {
+  answers: QuestionnaireAnswers;
+  profileDraft: ProfileDraft;
+  onboarded: boolean;
+};
+
 type OnboardingContextValue = {
   isReady: boolean;
   isComplete: boolean;
@@ -25,6 +34,7 @@ type OnboardingContextValue = {
   setAnswers: (a: QuestionnaireAnswers) => Promise<void>;
   setProfileDraft: (p: ProfileDraft) => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  saveToServer: (payload: RemoteProfilePayload) => Promise<void>;
   /** Re-open questionnaire from Settings (keeps profile until they save again). */
   reopenQuestionnaire: () => Promise<void>;
 };
@@ -57,6 +67,7 @@ export function buildProfileFromAnswers(a: QuestionnaireAnswers): ProfileDraft {
 }
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isReady: authReady } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [answers, setAnswersState] = useState<QuestionnaireAnswers | null>(null);
@@ -99,10 +110,59 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setIsComplete(true);
   }, []);
 
+  const saveToServer = useCallback(async (payload: RemoteProfilePayload) => {
+    await upsertMyProfile({
+      ...payload.answers,
+      bio: payload.profileDraft.bio,
+      prompts: payload.profileDraft.prompts,
+      onboarded: payload.onboarded,
+    });
+  }, []);
+
   const reopenQuestionnaire = useCallback(async () => {
     await AsyncStorage.removeItem(KEY_COMPLETE);
     setIsComplete(false);
   }, []);
+
+  useEffect(() => {
+    if (!authReady || !isAuthenticated || !isReady) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await fetchMyProfile();
+        if (cancelled || !profile || !profile.onboardedAt) return;
+        if (!profile.intent || !profile.city || !profile.energy || !profile.aboutLine || !profile.bio) return;
+        if (!profile.prompts || profile.prompts.length === 0) return;
+
+        const remoteAnswers: QuestionnaireAnswers = {
+          intent: profile.intent,
+          city: profile.city,
+          energy: profile.energy,
+          aboutLine: profile.aboutLine,
+        };
+        const remoteDraft: ProfileDraft = {
+          bio: profile.bio,
+          prompts: profile.prompts,
+        };
+
+        setAnswersState(remoteAnswers);
+        setProfileDraftState(remoteDraft);
+        setIsComplete(true);
+        await AsyncStorage.multiSet([
+          [KEY_ANSWERS, JSON.stringify(remoteAnswers)],
+          [KEY_PROFILE, JSON.stringify(remoteDraft)],
+          [KEY_COMPLETE, '1'],
+        ]);
+      } catch {
+        // Best-effort hydration; local onboarding remains fallback.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, isAuthenticated, isReady]);
 
   const value = useMemo(
     () => ({
@@ -113,9 +173,20 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       setAnswers,
       setProfileDraft,
       completeOnboarding,
+      saveToServer,
       reopenQuestionnaire,
     }),
-    [answers, completeOnboarding, isComplete, isReady, profileDraft, reopenQuestionnaire, setAnswers, setProfileDraft],
+    [
+      answers,
+      completeOnboarding,
+      isComplete,
+      isReady,
+      profileDraft,
+      reopenQuestionnaire,
+      saveToServer,
+      setAnswers,
+      setProfileDraft,
+    ],
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
