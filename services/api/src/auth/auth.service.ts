@@ -1,6 +1,7 @@
 import {
   HttpException,
   HttpStatus,
+  InternalServerErrorException,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,6 +19,7 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_DAYS = 30;
 const BCRYPT_ROUNDS = 10;
+const MSG91_DEFAULT_OTP_ENDPOINT = 'https://control.msg91.com/api/v5/otp';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +39,54 @@ export class AuthService {
     return createHash('sha256').update(token, 'utf8').digest('hex');
   }
 
+  private get isProduction(): boolean {
+    return this.config.get<string>('APP_ENV') === 'production';
+  }
+
+  private get msg91Config() {
+    return {
+      authKey: this.config.get<string>('MSG91_AUTH_KEY')?.trim(),
+      templateId: this.config.get<string>('MSG91_TEMPLATE_ID')?.trim(),
+      endpoint:
+        this.config.get<string>('MSG91_OTP_ENDPOINT')?.trim() ||
+        MSG91_DEFAULT_OTP_ENDPOINT,
+    };
+  }
+
+  private async sendMsg91Otp(phoneE164: string, code: string): Promise<void> {
+    const { authKey, templateId, endpoint } = this.msg91Config;
+    if (!authKey || !templateId) {
+      if (this.isProduction) {
+        throw new InternalServerErrorException(
+          'OTP provider not configured on server',
+        );
+      }
+      return;
+    }
+
+    const mobile = phoneE164.replace('+', '');
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        authkey: authKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mobile,
+        otp: code,
+        template_id: templateId,
+        otp_expiry: Math.floor(OTP_EXPIRY_MS / 1000 / 60),
+        realTimeResponse: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      this.logger.error(`MSG91 OTP send failed: ${response.status} ${errorBody}`);
+      throw new InternalServerErrorException('Failed to send OTP');
+    }
+  }
+
   async sendOtp(phone10: string) {
     const phoneE164 = this.phoneToE164(phone10);
 
@@ -50,7 +100,9 @@ export class AuthService {
       data: { phoneE164, codeHash, expiresAt },
     });
 
-    if (this.config.get('APP_ENV') !== 'production') {
+    await this.sendMsg91Otp(phoneE164, code);
+
+    if (!this.isProduction) {
       this.logger.log(`[dev] OTP for ${phoneE164}: ${code}`);
     }
 
