@@ -1,6 +1,6 @@
 # Dating app monorepo (India)
 
-Expo React Native client + NestJS API with **phone OTP (MSG91 in production, dev fallback in logs)**, **JWT access tokens**, **rotating refresh tokens**, and **PostgreSQL** via Prisma.
+Expo React Native client + NestJS API with **phone OTP (Twilio Verify in production, dev fallback in logs)**, **JWT access tokens**, **rotating refresh tokens**, and **PostgreSQL** via Prisma.
 
 ## Prerequisites
 
@@ -47,7 +47,7 @@ Check: [http://127.0.0.1:3000/v1/health](http://127.0.0.1:3000/v1/health)
 
 **OTP in development:** when you tap “Send OTP”, the API logs a line like `[dev] OTP for +91XXXXXXXXXX: 123456` in the terminal running `start:dev`. Enter that 6-digit code in the app.
   
-**OTP in production:** configure MSG91 env vars (`MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`) so users receive real OTP SMS.
+**OTP in production:** configure Twilio Verify env vars (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`) so users receive real OTP SMS.
 
 ## 3) Mobile app (Expo)
 
@@ -123,8 +123,9 @@ To let your co-founder use the app when your laptop is off, you need:
 4. Set required env vars in Render:
    - `DATABASE_URL` (cloud Postgres URL)
    - `JWT_SECRET` (long random string)
-   - `MSG91_AUTH_KEY` (from MSG91 dashboard)
-   - `MSG91_TEMPLATE_ID` (approved OTP template ID in MSG91)
+   - `TWILIO_ACCOUNT_SID`
+   - `TWILIO_AUTH_TOKEN`
+   - `TWILIO_VERIFY_SERVICE_SID`
 5. Deploy and verify:
    - `https://<your-render-domain>/v1/health`
 

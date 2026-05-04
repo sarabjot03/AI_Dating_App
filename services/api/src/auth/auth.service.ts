@@ -20,6 +20,7 @@ const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_DAYS = 30;
 const BCRYPT_ROUNDS = 10;
 const MSG91_DEFAULT_OTP_ENDPOINT = 'https://control.msg91.com/api/v5/otp';
+const TWILIO_VERIFY_BASE = 'https://verify.twilio.com/v2';
 
 @Injectable()
 export class AuthService {
@@ -51,6 +52,102 @@ export class AuthService {
         this.config.get<string>('MSG91_OTP_ENDPOINT')?.trim() ||
         MSG91_DEFAULT_OTP_ENDPOINT,
     };
+  }
+
+  private get twilioConfig() {
+    return {
+      accountSid: this.config.get<string>('TWILIO_ACCOUNT_SID')?.trim(),
+      authToken: this.config.get<string>('TWILIO_AUTH_TOKEN')?.trim(),
+      verifyServiceSid: this.config
+        .get<string>('TWILIO_VERIFY_SERVICE_SID')
+        ?.trim(),
+    };
+  }
+
+  private get isTwilioConfigured(): boolean {
+    const { accountSid, authToken, verifyServiceSid } = this.twilioConfig;
+    return Boolean(accountSid && authToken && verifyServiceSid);
+  }
+
+  private async sendTwilioVerification(phoneE164: string): Promise<void> {
+    const { accountSid, authToken, verifyServiceSid } = this.twilioConfig;
+    if (!accountSid || !authToken || !verifyServiceSid) {
+      throw new InternalServerErrorException('Twilio Verify not configured');
+    }
+
+    const body = new URLSearchParams({
+      To: phoneE164,
+      Channel: 'sms',
+    });
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const response = await fetch(
+      `${TWILIO_VERIFY_BASE}/Services/${verifyServiceSid}/Verifications`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      this.logger.error(
+        `Twilio verification send failed: ${response.status} ${errorBody}`,
+      );
+      throw new InternalServerErrorException('Failed to send OTP');
+    }
+
+    this.logger.log(`Twilio Verify: OTP sent to ${phoneE164}`);
+  }
+
+  private async checkTwilioVerification(
+    phoneE164: string,
+    code: string,
+  ): Promise<boolean> {
+    const { accountSid, authToken, verifyServiceSid } = this.twilioConfig;
+    if (!accountSid || !authToken || !verifyServiceSid) {
+      throw new InternalServerErrorException('Twilio Verify not configured');
+    }
+
+    const body = new URLSearchParams({
+      To: phoneE164,
+      Code: code,
+    });
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const response = await fetch(
+      `${TWILIO_VERIFY_BASE}/Services/${verifyServiceSid}/VerificationCheck`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      this.logger.error(
+        `Twilio verification check failed: ${response.status} ${errorBody}`,
+      );
+      return false;
+    }
+
+    const payload = (await response.json()) as { status?: string; valid?: boolean };
+    return payload.status === 'approved' || payload.valid === true;
+  }
+
+  private async upsertUserAndIssueTokens(phoneE164: string) {
+    const user = await this.prisma.user.upsert({
+      where: { phoneE164 },
+      create: { phoneE164 },
+      update: {},
+    });
+    return this.issueTokens(user.id);
   }
 
   private async sendMsg91Otp(phoneE164: string, code: string): Promise<void> {
@@ -90,6 +187,11 @@ export class AuthService {
   async sendOtp(phone10: string) {
     const phoneE164 = this.phoneToE164(phone10);
 
+    if (this.isTwilioConfigured) {
+      await this.sendTwilioVerification(phoneE164);
+      return { ok: true as const, expiresInSeconds: OTP_EXPIRY_MS / 1000 };
+    }
+
     await this.prisma.otpChallenge.deleteMany({ where: { phoneE164 } });
 
     const code = String(randomInt(100_000, 1_000_000));
@@ -111,6 +213,14 @@ export class AuthService {
 
   async verifyOtp(phone10: string, code: string) {
     const phoneE164 = this.phoneToE164(phone10);
+
+    if (this.isTwilioConfigured) {
+      const approved = await this.checkTwilioVerification(phoneE164, code);
+      if (!approved) {
+        throw new UnauthorizedException('Invalid or expired code');
+      }
+      return this.upsertUserAndIssueTokens(phoneE164);
+    }
 
     const challenge = await this.prisma.otpChallenge.findFirst({
       where: { phoneE164 },
@@ -136,13 +246,7 @@ export class AuthService {
 
     await this.prisma.otpChallenge.deleteMany({ where: { phoneE164 } });
 
-    const user = await this.prisma.user.upsert({
-      where: { phoneE164 },
-      create: { phoneE164 },
-      update: {},
-    });
-
-    return this.issueTokens(user.id);
+    return this.upsertUserAndIssueTokens(phoneE164);
   }
 
   async refresh(refreshToken: string) {
