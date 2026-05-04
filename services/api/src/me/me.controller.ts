@@ -21,4 +21,9 @@ export class MeController {
   ) {
     return this.meService.upsertProfile(req.user.userId, dto);
   }
+
+  @Get('compatibility-preview')
+  compatibilityPreview(@Req() req: { user: { userId: string } }) {
+    return this.meService.getCompatibilityPreview(req.user.userId);
+  }
 }

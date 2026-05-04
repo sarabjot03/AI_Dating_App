@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { computeCompatibilityPreview, type StoredQuestionnaire } from './compatibility-score';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -55,5 +56,18 @@ export class MeService {
     });
 
     return this.getProfile(userId);
+  }
+
+  async getCompatibilityPreview(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const raw = user.questionnaireJson as unknown;
+    const stored =
+      raw && typeof raw === 'object' && raw !== null && 'responses' in (raw as object)
+        ? (raw as StoredQuestionnaire)
+        : null;
+    return computeCompatibilityPreview(stored);
   }
 }
