@@ -55,8 +55,11 @@ export class AuthService {
   }
 
   private get twilioConfig() {
+    const accountSid =
+      this.config.get<string>('TWILIO_ACCOUNT_SID')?.trim() ||
+      this.config.get<string>('TWILIO_ACC_SID')?.trim();
     return {
-      accountSid: this.config.get<string>('TWILIO_ACCOUNT_SID')?.trim(),
+      accountSid,
       authToken: this.config.get<string>('TWILIO_AUTH_TOKEN')?.trim(),
       verifyServiceSid: this.config
         .get<string>('TWILIO_VERIFY_SERVICE_SID')
