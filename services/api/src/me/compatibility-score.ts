@@ -49,17 +49,23 @@ function clamp01(n: number): number {
 }
 
 function normalizeAnswer(q: QuestionJson, r: StoredResponse | undefined): number | null {
-  if (!r || r.type !== q.type) return null;
+  if (!r) return null;
   if (q.type === 'single') {
+    if (r.type !== 'single') return null;
     return clamp01(r.value);
   }
   if (q.type === 'scale') {
+    if (r.type !== 'scale') return null;
     const { min, max } = q.scale;
     if (max === min) return null;
     return clamp01((r.value - min) / (max - min));
   }
-  const n = r.values?.length ?? 0;
-  return clamp01(1 - n * 0.22);
+  if (q.type === 'multi') {
+    if (r.type !== 'multi') return null;
+    const n = r.values.length;
+    return clamp01(1 - n * 0.22);
+  }
+  return null;
 }
 
 export function computeCompatibilityPreview(stored: StoredQuestionnaire | null): CompatibilityPreviewResult {
