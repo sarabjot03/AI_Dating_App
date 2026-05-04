@@ -11,6 +11,7 @@ export type MyProfile = {
   aboutLine: string | null;
   bio: string | null;
   prompts: ProfilePrompt[];
+  questionnaire?: { version?: string; responses: Record<string, unknown> } | null;
   onboardedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -23,6 +24,7 @@ export type UpsertMyProfileInput = {
   aboutLine: string;
   bio: string;
   prompts: ProfilePrompt[];
+  questionnaire?: { version: string; responses: Record<string, unknown> };
   onboarded?: boolean;
 };
 

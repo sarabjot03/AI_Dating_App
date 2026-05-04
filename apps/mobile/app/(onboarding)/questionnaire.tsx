@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -15,37 +15,53 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/auth-context';
-import { useOnboarding, type QuestionnaireAnswers } from '@/contexts/onboarding-context';
+import { useOnboarding } from '@/contexts/onboarding-context';
 import { Brand } from '@/constants/theme';
+import {
+  COMPATIBILITY_SCHEMA,
+  flattenQuestions,
+  type QResponse,
+  type QResponseMulti,
+  type QResponseSingle,
+  type QuestionnaireAnswers,
+} from '@/lib/compatibility-questionnaire';
 
-const STEPS = 4;
-
-const INTENTS = ['Serious relationship', 'Something casual', 'Still figuring it out'] as const;
-const ENERGIES = ['Early mornings', 'Late evenings', 'Weekend explorer'] as const;
+const FLAT = flattenQuestions();
 
 export default function QuestionnaireScreen() {
   const { answers: saved, setAnswers } = useOnboarding();
   const { signOut } = useAuth();
   const { from } = useLocalSearchParams<{ from?: 'profile' }>();
 
-  const initial = useMemo(
-    () =>
-      saved ?? {
-        intent: INTENTS[0],
-        city: '',
-        energy: ENERGIES[0],
-        aboutLine: '',
-      },
-    [saved],
-  );
+  const totalSteps = FLAT.length + 1;
 
   const [step, setStep] = useState(0);
-  const [intent, setIntent] = useState(initial.intent);
-  const [city, setCity] = useState(initial.city);
-  const [energy, setEnergy] = useState(initial.energy);
-  const [aboutLine, setAboutLine] = useState(initial.aboutLine);
+  const [responses, setResponses] = useState<Record<string, QResponse>>({});
+  const [city, setCity] = useState('');
+  const [aboutLine, setAboutLine] = useState('');
 
-  const progress = (step + 1) / STEPS;
+  useEffect(() => {
+    if (!saved) return;
+    setResponses({ ...saved.responses });
+    setCity(saved.city);
+    setAboutLine(saved.aboutLine);
+  }, [saved]);
+
+  const progress = (step + 1) / totalSteps;
+  const isBasicsStep = step === FLAT.length;
+  const current = !isBasicsStep ? FLAT[step] : null;
+
+  const canNext = useMemo(() => {
+    if (isBasicsStep) {
+      return city.trim().length >= 2 && aboutLine.trim().length >= 8;
+    }
+    const q = FLAT[step].question;
+    const r = responses[q.id];
+    if (q.type === 'single') return r?.type === 'single';
+    if (q.type === 'scale') return r?.type === 'scale';
+    if (q.type === 'multi') return true;
+    return false;
+  }, [aboutLine, city, isBasicsStep, responses, step]);
 
   async function goBack() {
     Keyboard.dismiss();
@@ -59,23 +75,45 @@ export default function QuestionnaireScreen() {
 
   async function goNext() {
     Keyboard.dismiss();
-    if (step < STEPS - 1) {
+    if (step < totalSteps - 1) {
       setStep((s) => s + 1);
       return;
     }
-    const next: QuestionnaireAnswers = { intent, city: city.trim(), energy, aboutLine: aboutLine.trim() };
+    const filled: Record<string, QResponse> = { ...responses };
+    for (const { question } of FLAT) {
+      if (question.type === 'multi' && !filled[question.id]) {
+        filled[question.id] = { type: 'multi', values: [] };
+      }
+    }
+    const next: QuestionnaireAnswers = {
+      version: COMPATIBILITY_SCHEMA.version,
+      responses: filled,
+      city: city.trim(),
+      aboutLine: aboutLine.trim(),
+    };
     await setAnswers(next);
     router.push('/(onboarding)/profile');
   }
 
-  const canNext =
-    step === 0
-      ? true
-      : step === 1
-        ? city.trim().length >= 2
-        : step === 2
-          ? true
-          : aboutLine.trim().length >= 8;
+  function setSingle(id: string, value: number) {
+    setResponses((prev) => ({ ...prev, [id]: { type: 'single', value } satisfies QResponseSingle }));
+  }
+
+  function setScale(id: string, value: number) {
+    setResponses((prev) => ({ ...prev, [id]: { type: 'scale', value } }));
+  }
+
+  function toggleMulti(id: string, value: string) {
+    setResponses((prev) => {
+      const cur = prev[id];
+      const existing: string[] = cur?.type === 'multi' ? [...cur.values] : [];
+      const nextVals = existing.includes(value)
+        ? existing.filter((v) => v !== value)
+        : [...existing, value];
+      const next: QResponseMulti = { type: 'multi', values: nextVals };
+      return { ...prev, [id]: next };
+    });
+  }
 
   return (
     <KeyboardAvoidingView
@@ -91,7 +129,7 @@ export default function QuestionnaireScreen() {
               </Text>
             </Pressable>
             <Text style={[styles.stepLabel, { color: Brand.textMuted }]}>
-              Step {step + 1} of {STEPS}
+              Step {step + 1} of {totalSteps}
             </Text>
           </View>
           <View style={[styles.barTrack, { backgroundColor: Brand.border }]}>
@@ -103,35 +141,14 @@ export default function QuestionnaireScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            {step === 0 && (
+            {isBasicsStep ? (
               <>
-                <Text style={[styles.title, { color: Brand.text }]}>What brings you here?</Text>
+                <Text style={[styles.kicker, { color: Brand.pink }]}>Almost there</Text>
+                <Text style={[styles.title, { color: Brand.text }]}>City & intro</Text>
                 <Text style={[styles.caption, { color: Brand.textSecondary }]}>
-                  Pick the closest match — you can refine your profile later.
+                  We use this for distance-aware matching and your public profile line.
                 </Text>
-                {INTENTS.map((item) => (
-                  <Pressable
-                    key={item}
-                    onPress={() => setIntent(item)}
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: Brand.border,
-                        backgroundColor: intent === item ? 'rgba(255,45,139,0.15)' : 'transparent',
-                      },
-                    ]}>
-                    <Text style={[styles.chipText, { color: Brand.text }]}>{item}</Text>
-                  </Pressable>
-                ))}
-              </>
-            )}
-
-            {step === 1 && (
-              <>
-                <Text style={[styles.title, { color: Brand.text }]}>Where are you based?</Text>
-                <Text style={[styles.caption, { color: Brand.textSecondary }]}>
-                  City helps with distance and date ideas (India-first).
-                </Text>
+                <Text style={[styles.fieldLabel, { color: Brand.text }]}>City</Text>
                 <TextInput
                   value={city}
                   onChangeText={setCity}
@@ -141,40 +158,11 @@ export default function QuestionnaireScreen() {
                   autoCapitalize="words"
                   returnKeyType="next"
                 />
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <Text style={[styles.title, { color: Brand.text }]}>When are you most yourself?</Text>
-                <Text style={[styles.caption, { color: Brand.textSecondary }]}>We use this for vibe-matching later.</Text>
-                {ENERGIES.map((item) => (
-                  <Pressable
-                    key={item}
-                    onPress={() => setEnergy(item)}
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: Brand.border,
-                        backgroundColor: energy === item ? 'rgba(255,45,139,0.15)' : 'transparent',
-                      },
-                    ]}>
-                    <Text style={[styles.chipText, { color: Brand.text }]}>{item}</Text>
-                  </Pressable>
-                ))}
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <Text style={[styles.title, { color: Brand.text }]}>In one line, who are you?</Text>
-                <Text style={[styles.caption, { color: Brand.textSecondary }]}>
-                  Later, AI can expand this — for now, write what feels true.
-                </Text>
+                <Text style={[styles.fieldLabel, { color: Brand.text, marginTop: 16 }]}>One line about you</Text>
                 <TextInput
                   value={aboutLine}
                   onChangeText={setAboutLine}
-                  placeholder="I’m the friend who plans the trips but also needs Sunday reset."
+                  placeholder="I value honesty, good food, and slow Sundays."
                   placeholderTextColor={Brand.textMuted}
                   style={[styles.textArea, { color: Brand.text, borderColor: Brand.border }]}
                   multiline
@@ -183,20 +171,126 @@ export default function QuestionnaireScreen() {
                 />
                 <Text style={[styles.count, { color: Brand.textMuted }]}>{aboutLine.length}/200</Text>
               </>
-            )}
+            ) : current ? (
+              <QuestionStep
+                sectionTitle={current.sectionTitle}
+                showSectionKicker={step === 0 || FLAT[step - 1].sectionId !== current.sectionId}
+                question={current.question}
+                response={responses[current.question.id]}
+                onSingle={setSingle}
+                onScale={setScale}
+                onToggleMulti={toggleMulti}
+              />
+            ) : null}
           </ScrollView>
 
           <View style={styles.footer}>
             <Pressable
-              onPress={goNext}
+              onPress={() => void goNext()}
               disabled={!canNext}
               style={[styles.primary, { backgroundColor: Brand.pink, opacity: canNext ? 1 : 0.45 }]}>
-              <Text style={styles.primaryLabel}>{step === STEPS - 1 ? 'Build my profile' : 'Continue'}</Text>
+              <Text style={styles.primaryLabel}>
+                {step === totalSteps - 1 ? 'Build my profile' : 'Continue'}
+              </Text>
             </Pressable>
           </View>
         </SafeAreaView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
+  );
+}
+
+function QuestionStep({
+  sectionTitle,
+  showSectionKicker,
+  question,
+  response,
+  onSingle,
+  onScale,
+  onToggleMulti,
+}: {
+  sectionTitle: string;
+  showSectionKicker: boolean;
+  question: (typeof FLAT)[number]['question'];
+  response: QResponse | undefined;
+  onSingle: (id: string, value: number) => void;
+  onScale: (id: string, value: number) => void;
+  onToggleMulti: (id: string, value: string) => void;
+}) {
+  return (
+    <>
+      {showSectionKicker ? (
+        <Text style={[styles.kicker, { color: Brand.pink }]}>{sectionTitle}</Text>
+      ) : null}
+      <Text style={[styles.title, { color: Brand.text }]}>{question.question}</Text>
+      <Text style={[styles.caption, { color: Brand.textSecondary }]}>
+        Your answers power compatibility scoring — pick what feels true today.
+      </Text>
+
+      {question.type === 'single' &&
+        question.options.map((opt) => {
+          const selected = response?.type === 'single' && response.value === opt.value;
+          return (
+            <Pressable
+              key={String(opt.value)}
+              onPress={() => onSingle(question.id, opt.value)}
+              style={[
+                styles.chip,
+                {
+                  borderColor: Brand.border,
+                  backgroundColor: selected ? 'rgba(255,45,139,0.15)' : 'transparent',
+                },
+              ]}>
+              <Text style={[styles.chipText, { color: Brand.text }]}>{opt.label}</Text>
+            </Pressable>
+          );
+        })}
+
+      {question.type === 'scale' && (
+        <View style={styles.scaleRow}>
+          {Array.from(
+            { length: question.scale.max - question.scale.min + 1 },
+            (_, i) => question.scale.min + i,
+          ).map((n) => {
+            const selected = response?.type === 'scale' && response.value === n;
+            return (
+              <Pressable
+                key={n}
+                onPress={() => onScale(question.id, n)}
+                style={[
+                  styles.scaleChip,
+                  {
+                    borderColor: Brand.border,
+                    backgroundColor: selected ? 'rgba(255,45,139,0.2)' : 'transparent',
+                  },
+                ]}>
+                <Text style={[styles.scaleChipText, { color: Brand.text }]}>{n}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {question.type === 'multi' &&
+        question.options.map((opt) => {
+          const values = response?.type === 'multi' ? response.values : [];
+          const selected = values.includes(opt.value);
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => onToggleMulti(question.id, opt.value)}
+              style={[
+                styles.chip,
+                {
+                  borderColor: Brand.border,
+                  backgroundColor: selected ? 'rgba(255,45,139,0.15)' : 'transparent',
+                },
+              ]}>
+              <Text style={[styles.chipText, { color: Brand.text }]}>{opt.label}</Text>
+            </Pressable>
+          );
+        })}
+    </>
   );
 }
 
@@ -216,8 +310,10 @@ const styles = StyleSheet.create({
   barFill: { height: '100%', borderRadius: 2 },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 4 },
+  kicker: { fontSize: 13, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 },
+  title: { fontSize: 26, fontWeight: '800', marginBottom: 4 },
   caption: { fontSize: 15, lineHeight: 22, marginBottom: 8 },
+  fieldLabel: { fontSize: 15, fontWeight: '600', marginBottom: 6 },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
@@ -226,13 +322,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chipText: { fontSize: 17 },
+  scaleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  scaleChip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 52,
+    alignItems: 'center',
+  },
+  scaleChipText: { fontSize: 17, fontWeight: '700' },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 17,
-    marginTop: 8,
+    marginTop: 4,
   },
   textArea: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -241,7 +347,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 17,
     minHeight: 120,
-    marginTop: 8,
+    marginTop: 4,
   },
   count: { fontSize: 12, alignSelf: 'flex-end' },
   footer: { paddingHorizontal: 24, paddingBottom: 22 },

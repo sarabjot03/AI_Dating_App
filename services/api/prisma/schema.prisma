@@ -15,7 +15,8 @@ model User {
   energy         String?
   aboutLine      String?
   bio            String?
-  promptsJson    Json?
+  promptsJson        Json?
+  questionnaireJson  Json?
   onboardedAt    DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

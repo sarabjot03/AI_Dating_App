@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  Allow,
   ArrayMaxSize,
   IsBoolean,
   IsArray,
@@ -49,4 +50,9 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   onboarded?: boolean;
+
+  /** Stored compatibility questionnaire payload (version + responses). */
+  @IsOptional()
+  @Allow()
+  questionnaire?: unknown;
 }

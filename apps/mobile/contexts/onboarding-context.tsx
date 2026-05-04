@@ -3,22 +3,23 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import { fetchMyProfile, upsertMyProfile } from '@/lib/profile-api';
 import { useAuth } from '@/contexts/auth-context';
+import {
+  buildProfileFromAnswers as buildProfileFromQuestionnaire,
+  legacyStringsToQuestionnaireAnswers,
+  parseStoredQuestionnaireAnswers,
+  type QuestionnaireAnswers,
+} from '@/lib/compatibility-questionnaire';
 
 const KEY_COMPLETE = '@spark/onboarding_complete';
 const KEY_ANSWERS = '@spark/questionnaire_answers';
 const KEY_PROFILE = '@spark/profile_draft';
 
-export type QuestionnaireAnswers = {
-  intent: string;
-  city: string;
-  energy: string;
-  aboutLine: string;
-};
-
 export type ProfileDraft = {
   bio: string;
   prompts: { question: string; answer: string }[];
 };
+
+export type { QuestionnaireAnswers };
 
 type RemoteProfilePayload = {
   answers: QuestionnaireAnswers;
@@ -35,35 +36,15 @@ type OnboardingContextValue = {
   setProfileDraft: (p: ProfileDraft) => Promise<void>;
   completeOnboarding: () => Promise<void>;
   saveToServer: (payload: RemoteProfilePayload) => Promise<void>;
-  /** Re-open questionnaire from Settings (keeps profile until they save again). */
   reopenQuestionnaire: () => Promise<void>;
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(undefined);
 
+/** Public helper for profile preview screen. */
 export function buildProfileFromAnswers(a: QuestionnaireAnswers): ProfileDraft {
-  const bio = `${a.aboutLine.trim()}\n\nBased in ${a.city.trim()}. ${a.intent} — ${a.energy}.`;
-  return {
-    bio: bio.trim(),
-    prompts: [
-      {
-        question: 'Typical Sunday',
-        answer: a.energy.includes('Morning')
-          ? 'Slow coffee, a walk, and something low-key.'
-          : a.energy.includes('Evening')
-            ? 'Late brunch, friends, maybe a gig or a film.'
-            : 'Exploring the city or a quick getaway when I can.',
-      },
-      {
-        question: 'What I’m looking for',
-        answer: a.intent,
-      },
-      {
-        question: 'You should know',
-        answer: `I’m rooted in ${a.city.trim()} and value honest conversation.`,
-      },
-    ],
-  };
+  const built = buildProfileFromQuestionnaire(a);
+  return { bio: built.bio, prompts: built.prompts };
 }
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
@@ -84,7 +65,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         ]);
         if (cancelled) return;
         setIsComplete(c === '1');
-        if (a) setAnswersState(JSON.parse(a) as QuestionnaireAnswers);
+        const parsed = parseStoredQuestionnaireAnswers(a);
+        if (parsed) setAnswersState(parsed);
         if (p) setProfileDraftState(JSON.parse(p) as ProfileDraft);
       } finally {
         if (!cancelled) setIsReady(true);
@@ -111,10 +93,18 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const saveToServer = useCallback(async (payload: RemoteProfilePayload) => {
+    const derived = buildProfileFromQuestionnaire(payload.answers);
     await upsertMyProfile({
-      ...payload.answers,
+      intent: derived.intent,
+      city: derived.city,
+      energy: derived.energy,
+      aboutLine: derived.aboutLine,
       bio: payload.profileDraft.bio,
       prompts: payload.profileDraft.prompts,
+      questionnaire: {
+        version: payload.answers.version,
+        responses: payload.answers.responses,
+      },
       onboarded: payload.onboarded,
     });
   }, []);
@@ -132,15 +122,43 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       try {
         const profile = await fetchMyProfile();
         if (cancelled || !profile || !profile.onboardedAt) return;
-        if (!profile.intent || !profile.city || !profile.energy || !profile.aboutLine || !profile.bio) return;
-        if (!profile.prompts || profile.prompts.length === 0) return;
+        if (!profile.bio || !profile.prompts || profile.prompts.length === 0) return;
 
-        const remoteAnswers: QuestionnaireAnswers = {
-          intent: profile.intent,
-          city: profile.city,
-          energy: profile.energy,
-          aboutLine: profile.aboutLine,
-        };
+        let remoteAnswers: QuestionnaireAnswers | null = null;
+        if (
+          profile.questionnaire &&
+          typeof profile.questionnaire === 'object' &&
+          profile.questionnaire !== null &&
+          'responses' in profile.questionnaire
+        ) {
+          const pack = profile.questionnaire as {
+            version?: string;
+            responses: QuestionnaireAnswers['responses'];
+          };
+          if (profile.city && profile.aboutLine) {
+            remoteAnswers = {
+              version: pack.version ?? '1.0',
+              responses: pack.responses,
+              city: profile.city,
+              aboutLine: profile.aboutLine,
+            };
+          }
+        } else if (
+          profile.intent &&
+          profile.city &&
+          profile.energy &&
+          profile.aboutLine
+        ) {
+          remoteAnswers = legacyStringsToQuestionnaireAnswers({
+            intent: profile.intent,
+            city: profile.city,
+            energy: profile.energy,
+            aboutLine: profile.aboutLine,
+          });
+        }
+
+        if (!remoteAnswers) return;
+
         const remoteDraft: ProfileDraft = {
           bio: profile.bio,
           prompts: profile.prompts,

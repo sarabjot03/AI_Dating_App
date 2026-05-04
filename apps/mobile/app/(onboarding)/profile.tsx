@@ -63,6 +63,7 @@ export default function ProfilePreviewScreen() {
     return null;
   }
 
+  const seedDraft = buildProfileFromAnswers(answers);
   const canSave = bio.trim().length >= 20 && p0.trim().length >= 3 && p1.trim().length >= 3 && p2.trim().length >= 3;
 
   return (
@@ -97,21 +98,27 @@ export default function ProfilePreviewScreen() {
               textAlignVertical="top"
             />
 
-            <Text style={[styles.label, { color: Brand.text, marginTop: 16 }]}>Prompt: Typical Sunday</Text>
+            <Text style={[styles.label, { color: Brand.text, marginTop: 16 }]}>
+              Prompt: {seedDraft.prompts[0]?.question ?? 'Prompt 1'}
+            </Text>
             <TextInput
               value={p0}
               onChangeText={setP0}
               style={[styles.input, { color: Brand.text, borderColor: Brand.border }]}
             />
 
-            <Text style={[styles.label, { color: Brand.text, marginTop: 12 }]}>Prompt: What I’m looking for</Text>
+            <Text style={[styles.label, { color: Brand.text, marginTop: 12 }]}>
+              Prompt: {seedDraft.prompts[1]?.question ?? 'Prompt 2'}
+            </Text>
             <TextInput
               value={p1}
               onChangeText={setP1}
               style={[styles.input, { color: Brand.text, borderColor: Brand.border }]}
             />
 
-            <Text style={[styles.label, { color: Brand.text, marginTop: 12 }]}>Prompt: You should know</Text>
+            <Text style={[styles.label, { color: Brand.text, marginTop: 12 }]}>
+              Prompt: {seedDraft.prompts[2]?.question ?? 'Prompt 3'}
+            </Text>
             <TextInput
               value={p2}
               onChangeText={setP2}

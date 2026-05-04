@@ -17,6 +17,7 @@ export class MeService {
     }
 
     const prompts = Array.isArray(user.promptsJson) ? (user.promptsJson as unknown as ProfilePrompt[]) : [];
+    const questionnaire = user.questionnaireJson ?? null;
 
     return {
       id: user.id,
@@ -27,6 +28,7 @@ export class MeService {
       aboutLine: user.aboutLine,
       bio: user.bio,
       prompts,
+      questionnaire,
       onboardedAt: user.onboardedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -35,17 +37,21 @@ export class MeService {
 
   async upsertProfile(userId: string, dto: UpdateProfileDto) {
     const promptsJson = dto.prompts as unknown as Prisma.InputJsonValue;
+    const data: Prisma.UserUpdateInput = {
+      intent: dto.intent.trim(),
+      city: dto.city.trim(),
+      energy: dto.energy.trim(),
+      aboutLine: dto.aboutLine.trim(),
+      bio: dto.bio.trim(),
+      promptsJson,
+      onboardedAt: dto.onboarded ? new Date() : undefined,
+    };
+    if (dto.questionnaire != null) {
+      data.questionnaireJson = dto.questionnaire as Prisma.InputJsonValue;
+    }
     await this.prisma.user.update({
       where: { id: userId },
-      data: {
-        intent: dto.intent.trim(),
-        city: dto.city.trim(),
-        energy: dto.energy.trim(),
-        aboutLine: dto.aboutLine.trim(),
-        bio: dto.bio.trim(),
-        promptsJson,
-        onboardedAt: dto.onboarded ? new Date() : undefined,
-      },
+      data,
     });
 
     return this.getProfile(userId);

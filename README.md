@@ -101,6 +101,8 @@ If your co-founder is on a **different network**, tunnel both app bundle + API:
 2. Tap **Send OTP** → read the OTP from the **API terminal** (dev mode).
 3. Enter the 6-digit code → you should land on **Discover** with a real JWT session stored in the secure keychain.
 
+Onboarding includes a **compatibility questionnaire** (see `apps/mobile/constants/compatibility-questionnaire.json`). Answers are stored in Postgres as `questionnaireJson` when you complete profile sync.
+
 Sign out from **Profile** revokes the refresh token on the server and clears local tokens.
 
 ## Security
