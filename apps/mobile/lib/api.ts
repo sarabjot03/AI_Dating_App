@@ -1,5 +1,11 @@
 import { getEnv } from '@/lib/env';
-import { getAccessToken } from '@/lib/secure-token';
+import {
+  clearSession,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from '@/lib/secure-token';
 
 export class ApiError extends Error {
   constructor(
@@ -61,12 +67,43 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers.set('Content-Type', 'application/json');
   }
 
-  const token = await getAccessToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  const doFetch = async (token: string | null): Promise<Response> => {
+    const authHeaders = new Headers(headers);
+    if (token) {
+      authHeaders.set('Authorization', `Bearer ${token}`);
+    } else {
+      authHeaders.delete('Authorization');
+    }
+    return fetch(url, { ...init, headers: authHeaders });
+  };
+
+  let token = await getAccessToken();
+  let response = await doFetch(token);
+
+  if (response.status === 401) {
+    const refresh = await getRefreshToken();
+    if (refresh) {
+      const refreshHeaders = new Headers({ 'Content-Type': 'application/json' });
+      const refreshRes = await fetch(buildUrl('/auth/refresh'), {
+        method: 'POST',
+        headers: refreshHeaders,
+        body: JSON.stringify({ refreshToken: refresh }),
+      });
+      if (refreshRes.ok) {
+        const tokens = (await refreshRes.json()) as {
+          accessToken: string;
+          refreshToken: string;
+        };
+        await setAccessToken(tokens.accessToken);
+        await setRefreshToken(tokens.refreshToken);
+        token = tokens.accessToken;
+        response = await doFetch(token);
+      } else {
+        await clearSession();
+      }
+    }
   }
 
-  const response = await fetch(url, { ...init, headers });
   await throwIfNotOk(response);
   return response;
 }
