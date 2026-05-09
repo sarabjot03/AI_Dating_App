@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { buildProfileFromAnswers, useOnboarding } from '@/contexts/onboarding-context';
 import { Brand } from '@/constants/theme';
+import { ApiError } from '@/lib/api';
 
 export default function ProfilePreviewScreen() {
   const { answers, setProfileDraft, completeOnboarding, saveToServer } = useOnboarding();
@@ -51,8 +52,21 @@ export default function ProfilePreviewScreen() {
     await setProfileDraft(draft);
     try {
       await saveToServer({ answers, profileDraft: draft, onboarded: true });
-    } catch {
-      Alert.alert('Could not sync profile', 'Please check your connection and try again.');
+    } catch (e) {
+      let detail = 'Please check your connection and try again.';
+      if (e instanceof ApiError) {
+        const hint =
+          typeof e.body === 'string'
+            ? e.body
+            : e.body != null
+              ? JSON.stringify(e.body)
+              : '';
+        detail = `HTTP ${e.status}${hint ? `\n\n${hint.slice(0, 400)}` : ''}`;
+      } else if (e instanceof Error && e.message) {
+        detail = e.message;
+      }
+      if (__DEV__) console.error('saveToServer failed', e);
+      Alert.alert('Could not sync profile', detail);
       return;
     }
     await completeOnboarding();

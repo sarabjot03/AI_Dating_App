@@ -30,5 +30,13 @@ export function getEnv(): AppEnv {
     throw new Error(`Invalid environment: ${JSON.stringify(msg)}`);
   }
   cached = parsed.data;
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(
+      '[env] API base URL →',
+      cached.EXPO_PUBLIC_API_URL,
+      '(full path example:',
+      `${cached.EXPO_PUBLIC_API_URL}/v1/health)`,
+    );
+  }
   return cached;
 }
