@@ -5,6 +5,8 @@ export type ProfilePrompt = { question: string; answer: string };
 export type MyProfile = {
   id: string;
   phoneE164: string;
+  displayName: string | null;
+  avatarDataUrl: string | null;
   intent: string | null;
   city: string | null;
   energy: string | null;
@@ -18,6 +20,7 @@ export type MyProfile = {
 };
 
 export type UpsertMyProfileInput = {
+  displayName: string;
   intent: string;
   city: string;
   energy: string;
@@ -26,6 +29,7 @@ export type UpsertMyProfileInput = {
   prompts: ProfilePrompt[];
   questionnaire?: { version: string; responses: Record<string, unknown> };
   onboarded?: boolean;
+  avatarDataUrl?: string | null;
 };
 
 export async function fetchMyProfile(): Promise<MyProfile> {
@@ -37,6 +41,14 @@ export async function upsertMyProfile(payload: UpsertMyProfileInput): Promise<My
   const res = await apiFetch('/me/profile', {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function patchMyAvatar(avatarDataUrl: string | null): Promise<MyProfile> {
+  const res = await apiFetch('/me/avatar', {
+    method: 'PATCH',
+    body: JSON.stringify({ avatarDataUrl }),
   });
   return res.json();
 }

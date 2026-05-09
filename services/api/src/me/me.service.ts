@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { computeCompatibilityPreview, type StoredQuestionnaire } from './compatibility-score';
 import { PrismaService } from '../prisma/prisma.service';
+import { PatchAvatarDto } from './dto/patch-avatar.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type ProfilePrompt = { question: string; answer: string };
@@ -23,6 +24,8 @@ export class MeService {
     return {
       id: user.id,
       phoneE164: user.phoneE164,
+      displayName: user.displayName,
+      avatarDataUrl: user.avatarDataUrl,
       intent: user.intent,
       city: user.city,
       energy: user.energy,
@@ -37,8 +40,16 @@ export class MeService {
   }
 
   async upsertProfile(userId: string, dto: UpdateProfileDto) {
+    if (
+      dto.avatarDataUrl != null &&
+      dto.avatarDataUrl !== undefined &&
+      dto.avatarDataUrl.length > 450_000
+    ) {
+      throw new BadRequestException('Photo payload too large');
+    }
     const promptsJson = dto.prompts as unknown as Prisma.InputJsonValue;
     const data: Prisma.UserUpdateInput = {
+      displayName: dto.displayName.trim(),
       intent: dto.intent.trim(),
       city: dto.city.trim(),
       energy: dto.energy.trim(),
@@ -47,6 +58,9 @@ export class MeService {
       promptsJson,
       onboardedAt: dto.onboarded ? new Date() : undefined,
     };
+    if (dto.avatarDataUrl !== undefined) {
+      data.avatarDataUrl = dto.avatarDataUrl;
+    }
     if (dto.questionnaire != null) {
       data.questionnaireJson = dto.questionnaire as Prisma.InputJsonValue;
     }
@@ -55,6 +69,21 @@ export class MeService {
       data,
     });
 
+    return this.getProfile(userId);
+  }
+
+  async patchAvatar(userId: string, dto: PatchAvatarDto) {
+    if (dto.avatarDataUrl === undefined) {
+      return this.getProfile(userId);
+    }
+    const v = dto.avatarDataUrl;
+    if (v != null && v.length > 450_000) {
+      throw new BadRequestException('Photo payload too large');
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarDataUrl: v },
+    });
     return this.getProfile(userId);
   }
 

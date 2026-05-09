@@ -85,6 +85,9 @@ export default function ProfilePreviewScreen() {
             showsVerticalScrollIndicator={false}>
             <Text style={[styles.kicker, { color: Brand.pink }]}>Your profile draft</Text>
             <Text style={[styles.title, { color: Brand.text }]}>Edit before you go live</Text>
+            <Text style={[styles.nameLine, { color: Brand.textSecondary }]}>
+              Showing as <Text style={{ color: Brand.pink, fontWeight: '800' }}>{answers.displayName}</Text>
+            </Text>
             <Text style={[styles.caption, { color: Brand.textSecondary }]}>
               Built from your questionnaire. Replace with real AI copy on the server when you’re ready.
             </Text>
@@ -148,7 +151,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 24 },
   kicker: { fontSize: 13, fontWeight: '600', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 6 },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: '700', marginBottom: 6 },
+  nameLine: { fontSize: 15, lineHeight: 22, marginBottom: 12 },
   caption: { fontSize: 15, lineHeight: 22, marginBottom: 16 },
   label: { fontSize: 15, fontWeight: '600', marginBottom: 6 },
   textArea: {

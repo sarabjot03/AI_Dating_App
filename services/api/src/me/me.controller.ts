@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PatchAvatarDto } from './dto/patch-avatar.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { MeService } from './me.service';
 
@@ -20,6 +21,14 @@ export class MeController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.meService.upsertProfile(req.user.userId, dto);
+  }
+
+  @Patch('avatar')
+  patchAvatar(
+    @Req() req: { user: { userId: string } },
+    @Body() dto: PatchAvatarDto,
+  ) {
+    return this.meService.patchAvatar(req.user.userId, dto);
   }
 
   @Get('compatibility-preview')

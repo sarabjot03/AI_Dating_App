@@ -95,6 +95,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const saveToServer = useCallback(async (payload: RemoteProfilePayload) => {
     const derived = buildProfileFromQuestionnaire(payload.answers);
     await upsertMyProfile({
+      displayName: payload.answers.displayName.trim(),
       intent: derived.intent,
       city: derived.city,
       energy: derived.energy,
@@ -136,9 +137,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
             responses: QuestionnaireAnswers['responses'];
           };
           if (profile.city && profile.aboutLine) {
+            const dn = profile.displayName?.trim();
             remoteAnswers = {
               version: pack.version ?? '1.0',
               responses: pack.responses,
+              displayName: dn && dn.length >= 2 ? dn : 'Friend',
               city: profile.city,
               aboutLine: profile.aboutLine,
             };
@@ -149,12 +152,15 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           profile.energy &&
           profile.aboutLine
         ) {
-          remoteAnswers = legacyStringsToQuestionnaireAnswers({
-            intent: profile.intent,
-            city: profile.city,
-            energy: profile.energy,
-            aboutLine: profile.aboutLine,
-          });
+          remoteAnswers = {
+            ...legacyStringsToQuestionnaireAnswers({
+              intent: profile.intent,
+              city: profile.city,
+              energy: profile.energy,
+              aboutLine: profile.aboutLine,
+            }),
+            displayName: profile.displayName?.trim() || 'Friend',
+          };
         }
 
         if (!remoteAnswers) return;

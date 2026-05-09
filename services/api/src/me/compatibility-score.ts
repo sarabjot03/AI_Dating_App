@@ -134,3 +134,26 @@ export function computeCompatibilityPreview(stored: StoredQuestionnaire | null):
     disclaimer,
   };
 }
+
+/** Rough 55–100 “match %” between two saved questionnaires (symmetric distance on shared answers). */
+export function computePairCompatibilityScore(
+  a: StoredQuestionnaire | null,
+  b: StoredQuestionnaire | null,
+): number {
+  if (!a?.responses || !b?.responses) return 72;
+  let sum = 0;
+  let count = 0;
+  for (const sec of SCHEMA.sections) {
+    for (const q of sec.questions) {
+      const n1 = normalizeAnswer(q, a.responses[q.id]);
+      const n2 = normalizeAnswer(q, b.responses[q.id]);
+      if (n1 !== null && n2 !== null) {
+        sum += 1 - Math.abs(n1 - n2);
+        count += 1;
+      }
+    }
+  }
+  if (!count) return 72;
+  const closeness = sum / count;
+  return Math.round(55 + closeness * 40);
+}

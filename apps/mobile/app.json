@@ -40,7 +40,13 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Spark uses photos you choose for your profile picture."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

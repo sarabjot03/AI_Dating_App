@@ -10,6 +10,9 @@ datasource db {
 model User {
   id             String         @id @default(cuid())
   phoneE164      String         @unique
+  displayName    String?
+  /// Single profile photo as a data URL (JPEG). MVP storage until cloud uploads.
+  avatarDataUrl  String?        @db.Text
   intent         String?
   city           String?
   energy         String?
@@ -21,6 +24,31 @@ model User {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   refreshTokens  RefreshToken[]
+  likesFrom      Like[]         @relation("LikesFrom")
+  likesTo        Like[]         @relation("LikesTo")
+}
+
+model Like {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  createdAt  DateTime @default(now())
+  fromUser   User     @relation("LikesFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("LikesTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+}
+
+model Match {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
 }
 
 model OtpChallenge {

@@ -49,6 +49,8 @@ export type QResponse = QResponseSingle | QResponseScale | QResponseMulti;
 export type QuestionnaireAnswers = {
   version: string;
   responses: Record<string, QResponse>;
+  /** Shown on profile and discover cards (synced to server as displayName). */
+  displayName: string;
   city: string;
   aboutLine: string;
 };
@@ -115,6 +117,7 @@ export function legacyStringsToQuestionnaireAnswers(p: {
   return {
     version: COMPATIBILITY_SCHEMA.version,
     responses,
+    displayName: 'Friend',
     city: p.city,
     aboutLine: p.aboutLine,
   };
@@ -153,7 +156,11 @@ export function parseStoredQuestionnaireAnswers(raw: string | null): Questionnai
       typeof o.city === 'string' &&
       typeof o.aboutLine === 'string'
     ) {
-      return o as QuestionnaireAnswers;
+      const dn = typeof o.displayName === 'string' ? o.displayName.trim() : '';
+      return {
+        ...(o as QuestionnaireAnswers),
+        displayName: dn.length >= 2 ? dn : 'Friend',
+      };
     }
     return null;
   } catch {

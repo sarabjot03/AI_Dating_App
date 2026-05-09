@@ -1,12 +1,85 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Brand } from '@/constants/theme';
+import {
+  fetchDiscoverCandidates,
+  likeDiscoverUser,
+  type DiscoverCandidate,
+} from '@/lib/discover-api';
 
 export default function DiscoverScreen() {
+  const [queue, setQueue] = useState<DiscoverCandidate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'initial') setLoading(true);
+    else setRefreshing(true);
+    try {
+      const rows = await fetchDiscoverCandidates();
+      setQueue(rows);
+    } catch {
+      if (mode === 'refresh') {
+        Alert.alert('Could not refresh', 'Check your connection and try again.');
+      }
+    } finally {
+      if (mode === 'initial') setLoading(false);
+      else setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load('initial');
+  }, [load]);
+
+  const current = queue[0] ?? null;
+
+  function shift() {
+    setQueue((q) => q.slice(1));
+  }
+
+  async function onLike() {
+    if (!current || busy) return;
+    setBusy(true);
+    try {
+      const { matched } = await likeDiscoverUser(current.id);
+      if (matched) {
+        Alert.alert("It's a match!", 'Open the Matches tab to see them.');
+      }
+    } catch {
+      Alert.alert('Could not send like', 'Try again in a moment.');
+      setBusy(false);
+      return;
+    }
+    shift();
+    setBusy(false);
+  }
+
+  function onPass() {
+    if (busy) return;
+    shift();
+  }
+
+  const title = current?.displayName?.trim() || 'Member';
+  const metaCity = current?.city?.trim();
+  const tagline = current?.aboutLine?.trim() || current?.bio?.trim() || '';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
@@ -21,41 +94,67 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
-      <View style={styles.cardWrap}>
-        <View style={styles.card}>
-          <View style={styles.photo}>
-            <LinearGradient colors={['#2a2a2a', '#0a0a0a']} style={StyleSheet.absoluteFill} />
-            <LinearGradient
-              colors={['transparent', Brand.overlay, '#000000']}
-              locations={[0.35, 0.75, 1]}
-              style={StyleSheet.absoluteFillObject}
-            />
-            <View style={styles.nameBlock}>
-              <Text style={styles.name}>Aisha, 27</Text>
-              <Text style={styles.meta}>4 km away · Bengaluru</Text>
-            </View>
+      <ScrollView
+        style={styles.cardWrap}
+        contentContainerStyle={styles.cardWrapContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load('refresh')} tintColor={Brand.pink} />
+        }>
+        {loading ? (
+          <View style={styles.centerBox}>
+            <ActivityIndicator size="large" color={Brand.pink} />
+            <Text style={[styles.hint, { marginTop: 12 }]}>Loading people near you…</Text>
           </View>
-
-          <View style={styles.infoStrip}>
-            <Text style={styles.matchPill}>84% match</Text>
-            <Text style={styles.prompt} numberOfLines={2}>
-              Loves filter kaapi, indie gigs, and long drives out of the city.
+        ) : !current ? (
+          <View style={styles.centerBox}>
+            <Text style={styles.emptyTitle}>You're all caught up</Text>
+            <Text style={styles.emptyBody}>
+              Pull to refresh, or check back after more people join. Both accounts need to finish onboarding to appear
+              here.
             </Text>
           </View>
-        </View>
-      </View>
+        ) : (
+          <View style={styles.card}>
+            <View style={styles.photo}>
+              {current.avatarDataUrl ? (
+                <Image source={{ uri: current.avatarDataUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+              ) : (
+                <LinearGradient colors={['#2a2a2a', '#0a0a0a']} style={StyleSheet.absoluteFill} />
+              )}
+              <LinearGradient
+                colors={['transparent', Brand.overlay, '#000000']}
+                locations={[0.35, 0.75, 1]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={styles.nameBlock}>
+                <Text style={styles.name}>{title}</Text>
+                <Text style={styles.meta}>{metaCity ? `${metaCity}` : 'City not shared'}</Text>
+              </View>
+            </View>
 
-      <View style={styles.actions}>
-        <Pressable style={styles.passOuter} onPress={() => {}}>
-          <Text style={styles.passX}>✕</Text>
-        </Pressable>
-        <Pressable style={styles.super} onPress={() => {}}>
-          <IconSymbol name="sparkles" size={28} color={Brand.pink} />
-        </Pressable>
-        <Pressable style={styles.likeOuter} onPress={() => {}}>
-          <Text style={styles.likeHeart}>♥</Text>
-        </Pressable>
-      </View>
+            <View style={styles.infoStrip}>
+              <Text style={styles.matchPill}>{Math.round(current.matchPercent)}% match</Text>
+              <Text style={styles.prompt} numberOfLines={3}>
+                {tagline || 'They’re keeping it mysterious for now.'}
+              </Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      {current ? (
+        <View style={styles.actions}>
+          <Pressable style={styles.passOuter} onPress={onPass} disabled={busy}>
+            <Text style={styles.passX}>✕</Text>
+          </Pressable>
+          <Pressable style={styles.super} onPress={() => {}} disabled>
+            <IconSymbol name="sparkles" size={28} color={Brand.pink} />
+          </Pressable>
+          <Pressable style={styles.likeOuter} onPress={() => void onLike()} disabled={busy}>
+            <Text style={styles.likeHeart}>♥</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -88,8 +187,20 @@ const styles = StyleSheet.create({
     borderColor: Brand.border,
   },
   cardWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 4 },
+  cardWrapContent: { flexGrow: 1, paddingBottom: 8 },
+  centerBox: {
+    flex: 1,
+    minHeight: 360,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  hint: { color: Brand.textMuted, fontSize: 15, textAlign: 'center' },
+  emptyTitle: { color: Brand.text, fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  emptyBody: { color: Brand.textSecondary, fontSize: 16, lineHeight: 24, textAlign: 'center', marginTop: 10 },
   card: {
     flex: 1,
+    minHeight: 420,
     borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: Brand.surface,
@@ -97,7 +208,6 @@ const styles = StyleSheet.create({
     borderColor: Brand.border,
   },
   photo: { flex: 1, minHeight: 360 },
-  photoFade: { ...StyleSheet.absoluteFillObject },
   nameBlock: { position: 'absolute', left: 20, right: 20, bottom: 100 },
   name: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
   meta: { color: 'rgba(255,255,255,0.85)', fontSize: 15, fontWeight: '600', marginTop: 4 },
@@ -154,6 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Brand.surfaceElevated,
+    opacity: 0.45,
   },
   likeOuter: {
     width: 72,

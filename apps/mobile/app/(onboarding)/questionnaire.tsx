@@ -37,12 +37,14 @@ export default function QuestionnaireScreen() {
 
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState<Record<string, QResponse>>({});
+  const [displayName, setDisplayName] = useState('');
   const [city, setCity] = useState('');
   const [aboutLine, setAboutLine] = useState('');
 
   useEffect(() => {
     if (!saved) return;
     setResponses({ ...saved.responses });
+    setDisplayName(saved.displayName);
     setCity(saved.city);
     setAboutLine(saved.aboutLine);
   }, [saved]);
@@ -53,7 +55,11 @@ export default function QuestionnaireScreen() {
 
   const canNext = useMemo(() => {
     if (isBasicsStep) {
-      return city.trim().length >= 2 && aboutLine.trim().length >= 8;
+      return (
+        displayName.trim().length >= 2 &&
+        city.trim().length >= 2 &&
+        aboutLine.trim().length >= 8
+      );
     }
     const q = FLAT[step].question;
     const r = responses[q.id];
@@ -61,7 +67,7 @@ export default function QuestionnaireScreen() {
     if (q.type === 'scale') return r?.type === 'scale';
     if (q.type === 'multi') return true;
     return false;
-  }, [aboutLine, city, isBasicsStep, responses, step]);
+  }, [aboutLine, city, displayName, isBasicsStep, responses, step]);
 
   async function goBack() {
     Keyboard.dismiss();
@@ -88,6 +94,7 @@ export default function QuestionnaireScreen() {
     const next: QuestionnaireAnswers = {
       version: COMPATIBILITY_SCHEMA.version,
       responses: filled,
+      displayName: displayName.trim(),
       city: city.trim(),
       aboutLine: aboutLine.trim(),
     };
@@ -144,11 +151,22 @@ export default function QuestionnaireScreen() {
             {isBasicsStep ? (
               <>
                 <Text style={[styles.kicker, { color: Brand.pink }]}>Almost there</Text>
-                <Text style={[styles.title, { color: Brand.text }]}>City & intro</Text>
+                <Text style={[styles.title, { color: Brand.text }]}>Name, city & intro</Text>
                 <Text style={[styles.caption, { color: Brand.textSecondary }]}>
-                  We use this for distance-aware matching and your public profile line.
+                  Your first name (or the name you want shown) appears on your profile and discover cards.
                 </Text>
-                <Text style={[styles.fieldLabel, { color: Brand.text }]}>City</Text>
+                <Text style={[styles.fieldLabel, { color: Brand.text }]}>Name</Text>
+                <TextInput
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  placeholder="e.g. Aisha"
+                  placeholderTextColor={Brand.textMuted}
+                  style={[styles.input, { color: Brand.text, borderColor: Brand.border }]}
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                  maxLength={80}
+                />
+                <Text style={[styles.fieldLabel, { color: Brand.text, marginTop: 16 }]}>City</Text>
                 <TextInput
                   value={city}
                   onChangeText={setCity}

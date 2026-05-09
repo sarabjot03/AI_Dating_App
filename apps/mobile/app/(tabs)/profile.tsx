@@ -1,3 +1,6 @@
+import { Image } from 'expo-image';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -5,13 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/auth-context';
 import { Brand } from '@/constants/theme';
-import { fetchMyProfile, type MyProfile } from '@/lib/profile-api';
+import { fetchMyProfile, patchMyAvatar, type MyProfile } from '@/lib/profile-api';
 
 export default function ProfileScreen() {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPhotoBusy, setIsPhotoBusy] = useState(false);
 
   const loadProfile = useCallback(
     async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -41,16 +45,59 @@ export default function ProfileScreen() {
     router.replace('/(auth)/welcome');
   }
 
-  const displayName =
-    profile?.aboutLine?.trim().split(' ').slice(0, 2).join(' ') || profile?.phoneE164 || 'You';
+  async function pickAvatar() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to set a profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setIsPhotoBusy(true);
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 720 } }],
+        { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!manipulated.base64) {
+        Alert.alert('Could not read photo', 'Try another image.');
+        return;
+      }
+      const dataUrl = `data:image/jpeg;base64,${manipulated.base64}`;
+      await patchMyAvatar(dataUrl);
+      await loadProfile('refresh');
+    } catch {
+      Alert.alert('Upload failed', 'Try a smaller photo or check your connection.');
+    } finally {
+      setIsPhotoBusy(false);
+    }
+  }
+
+  const displayName = profile?.displayName?.trim() || profile?.phoneE164 || 'You';
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.hero}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarLetter}>{avatarLetter}</Text>
-        </View>
+        <Pressable
+          onPress={() => void pickAvatar()}
+          disabled={isPhotoBusy}
+          style={[styles.avatar, isPhotoBusy && { opacity: 0.6 }]}>
+          {profile?.avatarDataUrl ? (
+            <Image source={{ uri: profile.avatarDataUrl }} style={styles.avatarImage} contentFit="cover" />
+          ) : (
+            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
+          )}
+        </Pressable>
+        <Pressable onPress={() => void pickAvatar()} disabled={isPhotoBusy}>
+          <Text style={styles.changePhoto}>{isPhotoBusy ? 'Uploading…' : 'Tap to add or change photo'}</Text>
+        </Pressable>
         <Text style={styles.name}>{displayName}</Text>
         <Text style={styles.sub}>
           {profile?.bio?.trim() || 'Edit questionnaire anytime — your match % sharpens with richer answers.'}
@@ -81,6 +128,7 @@ export default function ProfileScreen() {
             <ActivityIndicator size="small" color={Brand.textMuted} />
           ) : (
             <>
+              <Info label="Display name" value={profile?.displayName ?? 'Not set'} />
               <Info label="Intent" value={profile?.intent ?? 'Not set'} />
               <Info label="City" value={profile?.city ?? 'Not set'} />
               <Info label="Energy" value={profile?.energy ?? 'Not set'} />
@@ -132,9 +180,18 @@ const styles = StyleSheet.create({
     borderColor: Brand.pink,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  avatarImage: { width: '100%', height: '100%' },
   avatarLetter: { color: Brand.pink, fontSize: 40, fontWeight: '900' },
-  name: { color: Brand.text, fontSize: 28, fontWeight: '900', marginTop: 14 },
+  changePhoto: {
+    color: Brand.pink,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  name: { color: Brand.text, fontSize: 28, fontWeight: '900', marginTop: 10 },
   sub: { color: Brand.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, maxWidth: 320 },
   list: { paddingHorizontal: 20, marginTop: 8 },
   row: {

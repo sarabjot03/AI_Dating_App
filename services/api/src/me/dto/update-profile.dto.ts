@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -21,6 +22,15 @@ class ProfilePromptDto {
 }
 
 export class UpdateProfileDto {
+  @IsString()
+  @Length(2, 80)
+  displayName!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(450_000)
+  avatarDataUrl?: string | null;
+
   @IsString()
   @Length(2, 80)
   intent!: string;
