@@ -71,8 +71,8 @@ export default function CompatibilityScreen() {
           <Text style={styles.kicker}>Compatibility</Text>
           <Text style={styles.title}>Your match % (preview)</Text>
           <Text style={styles.caption}>
-            Scores below are computed on the server from your saved questionnaire. Peer-to-peer matching comes next
-            with the discovery feed.
+            Scores below are computed on the server from your saved questionnaire. Discover uses the same
+            rule-based model plus same-city distance for each card.
           </Text>
         </View>
 

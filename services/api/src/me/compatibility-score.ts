@@ -70,7 +70,7 @@ function normalizeAnswer(q: QuestionJson, r: StoredResponse | undefined): number
 
 export function computeCompatibilityPreview(stored: StoredQuestionnaire | null): CompatibilityPreviewResult {
   const disclaimer =
-    'This is a placeholder score from your own answers (not a match to another person yet). Real compatibility vs other users will ship with the discovery feed.';
+    'Scores on Discover combine your questionnaire answers with distance (same city). Peer-to-peer matching uses the same model in v1.';
 
   if (!stored || !stored.responses || typeof stored.responses !== 'object') {
     return {
@@ -135,6 +135,19 @@ export function computeCompatibilityPreview(stored: StoredQuestionnaire | null):
   };
 }
 
+function normalizeCity(city: string | null | undefined): string {
+  return (city ?? '').trim().toLowerCase();
+}
+
+export function citiesMatch(
+  cityA: string | null | undefined,
+  cityB: string | null | undefined,
+): boolean {
+  const a = normalizeCity(cityA);
+  const b = normalizeCity(cityB);
+  return a.length >= 2 && a === b;
+}
+
 /** Rough 55–100 “match %” between two saved questionnaires (symmetric distance on shared answers). */
 export function computePairCompatibilityScore(
   a: StoredQuestionnaire | null,
@@ -156,4 +169,20 @@ export function computePairCompatibilityScore(
   if (!count) return 72;
   const closeness = sum / count;
   return Math.round(55 + closeness * 40);
+}
+
+/** v1 feed score: questionnaire similarity + same-city bonus. */
+export function computeFeedMatchScore(
+  a: StoredQuestionnaire | null,
+  b: StoredQuestionnaire | null,
+  cityA: string | null | undefined,
+  cityB: string | null | undefined,
+): { matchPercent: number; distanceLabel: string } {
+  const base = computePairCompatibilityScore(a, b);
+  const sameCity = citiesMatch(cityA, cityB);
+  const bonus = sameCity ? 5 : 0;
+  return {
+    matchPercent: Math.min(99, base + bonus),
+    distanceLabel: sameCity ? 'Same city' : 'Different city',
+  };
 }

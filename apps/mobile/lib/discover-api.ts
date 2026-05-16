@@ -1,38 +1,16 @@
-import { apiFetch } from '@/lib/api';
+/** @deprecated Use @/lib/feed-api */
+import { fetchFeed, fetchMatches, postSwipe, type FeedCard, type MatchRow } from '@/lib/feed-api';
 
-export type DiscoverCandidate = {
-  id: string;
-  displayName: string | null;
-  city: string | null;
-  aboutLine: string | null;
-  bio: string | null;
-  avatarDataUrl: string | null;
-  matchPercent: number;
-};
+export type DiscoverCandidate = FeedCard;
+export { fetchMatches, type MatchRow };
 
-export async function fetchDiscoverCandidates(): Promise<DiscoverCandidate[]> {
-  const res = await apiFetch('/discover/candidates');
-  return res.json();
+export async function fetchDiscoverCandidates(): Promise<FeedCard[]> {
+  return fetchFeed();
 }
 
-export async function likeDiscoverUser(targetUserId: string): Promise<{ ok: true; matched: boolean }> {
-  const res = await apiFetch(`/discover/like/${targetUserId}`, { method: 'POST' });
-  return res.json();
-}
-
-export type MatchRow = {
-  matchId: string;
-  createdAt: string;
-  user: {
-    id: string;
-    displayName: string | null;
-    city: string | null;
-    aboutLine: string | null;
-    avatarDataUrl: string | null;
-  };
-};
-
-export async function fetchMatches(): Promise<MatchRow[]> {
-  const res = await apiFetch('/discover/matches');
-  return res.json();
+export async function likeDiscoverUser(
+  targetUserId: string,
+): Promise<{ ok: true; matched: boolean }> {
+  const r = await postSwipe(targetUserId, 'like');
+  return { ok: r.ok, matched: r.matched };
 }

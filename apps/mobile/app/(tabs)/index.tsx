@@ -1,10 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,14 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Brand } from '@/constants/theme';
-import {
-  fetchDiscoverCandidates,
-  likeDiscoverUser,
-  type DiscoverCandidate,
-} from '@/lib/discover-api';
+import { fetchFeed, postSwipe, type FeedCard } from '@/lib/feed-api';
 
 export default function DiscoverScreen() {
-  const [queue, setQueue] = useState<DiscoverCandidate[]>([]);
+  const [queue, setQueue] = useState<FeedCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,7 +29,7 @@ export default function DiscoverScreen() {
     if (mode === 'initial') setLoading(true);
     else setRefreshing(true);
     try {
-      const rows = await fetchDiscoverCandidates();
+      const rows = await fetchFeed();
       setQueue(rows);
     } catch {
       if (mode === 'refresh') {
@@ -44,9 +41,11 @@ export default function DiscoverScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void load('initial');
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load('initial');
+    }, [load]),
+  );
 
   const current = queue[0] ?? null;
 
@@ -54,31 +53,30 @@ export default function DiscoverScreen() {
     setQueue((q) => q.slice(1));
   }
 
-  async function onLike() {
+  async function onSwipe(action: 'like' | 'pass') {
     if (!current || busy) return;
     setBusy(true);
     try {
-      const { matched } = await likeDiscoverUser(current.id);
-      if (matched) {
+      const result = await postSwipe(current.id, action);
+      if (result.matched) {
         Alert.alert("It's a match!", 'Open the Matches tab to see them.');
       }
+      shift();
     } catch {
-      Alert.alert('Could not send like', 'Try again in a moment.');
+      Alert.alert(
+        action === 'like' ? 'Could not send like' : 'Could not pass',
+        'Try again in a moment.',
+      );
+    } finally {
       setBusy(false);
-      return;
     }
-    shift();
-    setBusy(false);
-  }
-
-  function onPass() {
-    if (busy) return;
-    shift();
   }
 
   const title = current?.displayName?.trim() || 'Member';
   const metaCity = current?.city?.trim();
+  const distance = current?.distanceLabel?.trim();
   const tagline = current?.aboutLine?.trim() || current?.bio?.trim() || '';
+  const actionsDisabled = busy || loading;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -98,7 +96,12 @@ export default function DiscoverScreen() {
         style={styles.cardWrap}
         contentContainerStyle={styles.cardWrapContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load('refresh')} tintColor={Brand.pink} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void load('refresh')}
+            tintColor={Brand.pink}
+            enabled={!busy}
+          />
         }>
         {loading ? (
           <View style={styles.centerBox}>
@@ -109,8 +112,8 @@ export default function DiscoverScreen() {
           <View style={styles.centerBox}>
             <Text style={styles.emptyTitle}>You're all caught up</Text>
             <Text style={styles.emptyBody}>
-              Pull to refresh, or check back after more people join. Both accounts need to finish onboarding to appear
-              here.
+              Pull to refresh. Finish onboarding on another account, or ask your team to run{' '}
+              <Text style={styles.mono}>npm run prisma:seed</Text> on the API for demo profiles.
             </Text>
           </View>
         ) : (
@@ -128,14 +131,17 @@ export default function DiscoverScreen() {
               />
               <View style={styles.nameBlock}>
                 <Text style={styles.name}>{title}</Text>
-                <Text style={styles.meta}>{metaCity ? `${metaCity}` : 'City not shared'}</Text>
+                <Text style={styles.meta}>
+                  {metaCity ? metaCity : 'City not shared'}
+                  {distance ? ` · ${distance}` : ''}
+                </Text>
               </View>
             </View>
 
             <View style={styles.infoStrip}>
               <Text style={styles.matchPill}>{Math.round(current.matchPercent)}% match</Text>
               <Text style={styles.prompt} numberOfLines={3}>
-                {tagline || 'They’re keeping it mysterious for now.'}
+                {tagline || "They're keeping it mysterious for now."}
               </Text>
             </View>
           </View>
@@ -144,13 +150,22 @@ export default function DiscoverScreen() {
 
       {current ? (
         <View style={styles.actions}>
-          <Pressable style={styles.passOuter} onPress={onPass} disabled={busy}>
+          {busy ? (
+            <ActivityIndicator size="small" color={Brand.pink} style={styles.busySpinner} />
+          ) : null}
+          <Pressable
+            style={[styles.passOuter, actionsDisabled && styles.actionDisabled]}
+            onPress={() => void onSwipe('pass')}
+            disabled={actionsDisabled}>
             <Text style={styles.passX}>✕</Text>
           </Pressable>
-          <Pressable style={styles.super} onPress={() => {}} disabled>
+          <Pressable style={[styles.super, styles.actionDisabled]} disabled>
             <IconSymbol name="sparkles" size={28} color={Brand.pink} />
           </Pressable>
-          <Pressable style={styles.likeOuter} onPress={() => void onLike()} disabled={busy}>
+          <Pressable
+            style={[styles.likeOuter, actionsDisabled && styles.actionDisabled]}
+            onPress={() => void onSwipe('like')}
+            disabled={actionsDisabled}>
             <Text style={styles.likeHeart}>♥</Text>
           </Pressable>
         </View>
@@ -198,6 +213,7 @@ const styles = StyleSheet.create({
   hint: { color: Brand.textMuted, fontSize: 15, textAlign: 'center' },
   emptyTitle: { color: Brand.text, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   emptyBody: { color: Brand.textSecondary, fontSize: 16, lineHeight: 24, textAlign: 'center', marginTop: 10 },
+  mono: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 14, color: Brand.pink },
   card: {
     flex: 1,
     minHeight: 420,
@@ -244,6 +260,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingBottom: 28,
   },
+  busySpinner: { position: 'absolute', top: -8 },
   passOuter: {
     width: 64,
     height: 64,
@@ -280,4 +297,5 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   likeHeart: { color: '#fff', fontSize: 32, marginTop: 2 },
+  actionDisabled: { opacity: 0.4 },
 });

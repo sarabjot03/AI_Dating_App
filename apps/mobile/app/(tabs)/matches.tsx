@@ -5,7 +5,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Brand } from '@/constants/theme';
-import { fetchMatches, type MatchRow } from '@/lib/discover-api';
+import { fetchMatches, type MatchRow } from '@/lib/feed-api';
 
 export default function MatchesScreen() {
   const [rows, setRows] = useState<MatchRow[]>([]);

@@ -26,6 +26,27 @@ model User {
   refreshTokens  RefreshToken[]
   likesFrom      Like[]         @relation("LikesFrom")
   likesTo        Like[]         @relation("LikesTo")
+  swipesFrom     Swipe[]        @relation("SwipesFrom")
+  swipesTo       Swipe[]        @relation("SwipesTo")
+  isSeed         Boolean        @default(false)
+}
+
+enum SwipeAction {
+  like
+  pass
+}
+
+model Swipe {
+  id         String      @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  action     SwipeAction
+  createdAt  DateTime    @default(now())
+  fromUser   User        @relation("SwipesFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User        @relation("SwipesTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
 }
 
 model Like {
