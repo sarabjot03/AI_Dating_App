@@ -1,0 +1,260 @@
+{
+    "version": "1.0",
+    "sections": [
+        {
+            "id": "core_values",
+            "title": "Core Values",
+            "weight": 0.4,
+            "questions": [
+                {
+                    "id": "kids",
+                    "type": "single",
+                    "question": "Do you want children?",
+                    "weight": 10,
+                    "options": [
+                        { "label": "Yes", "value": 1 },
+                        { "label": "Maybe", "value": 0.5 },
+                        { "label": "No", "value": 0 }
+                    ]
+                },
+                {
+                    "id": "religion_importance",
+                    "type": "scale",
+                    "question": "How important is religion/spirituality in your life?",
+                    "weight": 8,
+                    "scale": { "min": 1, "max": 5 }
+                },
+                {
+                    "id": "relationship_goal",
+                    "type": "single",
+                    "question": "What are you looking for?",
+                    "weight": 10,
+                    "options": [
+                        { "label": "Casual", "value": 0 },
+                        { "label": "Serious Relationship", "value": 0.7 },
+                        { "label": "Marriage", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "career_ambition",
+                    "type": "scale",
+                    "question": "How important is career ambition?",
+                    "weight": 6,
+                    "scale": { "min": 1, "max": 5 }
+                }
+            ]
+        },
+        {
+            "id": "lifestyle",
+            "title": "Lifestyle & Habits",
+            "weight": 0.1,
+            "questions": [
+                {
+                    "id": "sleep_type",
+                    "type": "single",
+                    "question": "What is your sleep style?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Early Bird", "value": 0 },
+                        { "label": "Flexible", "value": 0.5 },
+                        { "label": "Night Owl", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "social_style",
+                    "type": "single",
+                    "question": "How social are you?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Prefer staying in", "value": 0 },
+                        { "label": "Balanced", "value": 0.5 },
+                        { "label": "Go out often", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "drinking",
+                    "type": "single",
+                    "question": "Do you drink?",
+                    "weight": 4,
+                    "options": [
+                        { "label": "Never", "value": 0 },
+                        { "label": "Occasionally", "value": 0.5 },
+                        { "label": "Frequently", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "fitness",
+                    "type": "single",
+                    "question": "How important is fitness to you?",
+                    "weight": 4,
+                    "options": [
+                        { "label": "Not important", "value": 0 },
+                        { "label": "Somewhat important", "value": 0.5 },
+                        { "label": "Very important", "value": 1 }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "emotional",
+            "title": "Emotional & Communication",
+            "weight": 0.2,
+            "questions": [
+                {
+                    "id": "upset_response",
+                    "type": "single",
+                    "question": "When you're upset, what do you prefer?",
+                    "weight": 7,
+                    "options": [
+                        { "label": "Space", "value": 0 },
+                        { "label": "Comfort", "value": 0.33 },
+                        { "label": "Solutions", "value": 0.66 },
+                        { "label": "Distraction", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "conflict_style",
+                    "type": "single",
+                    "question": "How do you handle conflict?",
+                    "weight": 7,
+                    "options": [
+                        { "label": "Avoid it", "value": 0 },
+                        { "label": "Discuss immediately", "value": 0.5 },
+                        { "label": "Cool-off then talk", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "emotional_expression",
+                    "type": "scale",
+                    "question": "How expressive are you emotionally?",
+                    "weight": 6,
+                    "scale": { "min": 1, "max": 5 }
+                },
+                {
+                    "id": "communication_expectation",
+                    "type": "single",
+                    "question": "How often do you expect communication?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Low", "value": 0 },
+                        { "label": "Medium", "value": 0.5 },
+                        { "label": "High", "value": 1 }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "relationship_behavior",
+            "title": "Relationship Behavior",
+            "weight": 0.2,
+            "questions": [
+                {
+                    "id": "love_language",
+                    "type": "single",
+                    "question": "What is your primary love language?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Words", "value": 0 },
+                        { "label": "Actions", "value": 0.25 },
+                        { "label": "Physical Touch", "value": 0.5 },
+                        { "label": "Gifts", "value": 0.75 },
+                        { "label": "Quality Time", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "jealousy",
+                    "type": "single",
+                    "question": "How would you describe your jealousy level?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Low", "value": 0 },
+                        { "label": "Medium", "value": 0.5 },
+                        { "label": "High", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "deal_breakers",
+                    "type": "multi",
+                    "question": "Select your deal breakers",
+                    "weight": 10,
+                    "options": [
+                        { "label": "Smoking", "value": "smoking" },
+                        { "label": "Long Distance", "value": "long_distance" },
+                        { "label": "Different Religion", "value": "religion" },
+                        { "label": "Drinking", "value": "drinking" }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "situational",
+            "title": "Situational Responses",
+            "weight": 0.05,
+            "questions": [
+                {
+                    "id": "forgot_birthday",
+                    "type": "single",
+                    "question": "If your partner forgets your birthday, what do you do?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Ignore it", "value": 0 },
+                        { "label": "Talk calmly", "value": 0.5 },
+                        { "label": "Get upset", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "argument_response",
+                    "type": "single",
+                    "question": "During an argument, what do you do?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Walk away", "value": 0 },
+                        { "label": "Fix immediately", "value": 0.5 },
+                        { "label": "Take time then return", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "space_need",
+                    "type": "single",
+                    "question": "If your partner needs more space, what do you do?",
+                    "weight": 5,
+                    "options": [
+                        { "label": "Accept it", "value": 0 },
+                        { "label": "Feel insecure", "value": 0.5 },
+                        { "label": "Discuss compromise", "value": 1 }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "interests",
+            "title": "Interests & Preferences",
+            "weight": 0.05,
+            "questions": [
+                {
+                    "id": "weekend",
+                    "type": "single",
+                    "question": "Ideal weekend?",
+                    "weight": 3,
+                    "options": [
+                        { "label": "Chill at home", "value": 0 },
+                        { "label": "Social outings", "value": 0.5 },
+                        { "label": "Adventure activities", "value": 1 }
+                    ]
+                },
+                {
+                    "id": "travel",
+                    "type": "single",
+                    "question": "Preferred travel style?",
+                    "weight": 3,
+                    "options": [
+                        { "label": "Luxury", "value": 0 },
+                        { "label": "Budget", "value": 0.33 },
+                        { "label": "Backpacking", "value": 0.66 },
+                        { "label": "Not into travel", "value": 1 }
+                    ]
+                }
+            ]
+        }
+    ]
+}
