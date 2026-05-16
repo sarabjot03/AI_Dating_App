@@ -23,7 +23,9 @@ apps/mobile/ios/
 *.mobileprovision
 
 # Build
-services/api/dist/
+# NOTE: Do not gitignore services/api/dist — Render omits gitignored paths from the
+# deploy slug, so Nest's built output would be missing at runtime ("Cannot find module dist/main").
+# Run `npm run build` in services/api before committing only if you intentionally ship artifacts (avoid).
 coverage/
 
 # OS / IDE
