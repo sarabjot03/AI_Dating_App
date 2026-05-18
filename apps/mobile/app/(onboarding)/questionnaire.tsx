@@ -99,7 +99,7 @@ export default function QuestionnaireScreen() {
       aboutLine: aboutLine.trim(),
     };
     await setAnswers(next);
-    router.push('/(onboarding)/profile');
+    router.push('/(onboarding)/photos');
   }
 
   function setSingle(id: string, value: number) {
@@ -208,7 +208,7 @@ export default function QuestionnaireScreen() {
               disabled={!canNext}
               style={[styles.primary, { backgroundColor: Brand.pink, opacity: canNext ? 1 : 0.45 }]}>
               <Text style={styles.primaryLabel}>
-                {step === totalSteps - 1 ? 'Build my profile' : 'Continue'}
+                {step === totalSteps - 1 ? 'Continue to photos' : 'Continue'}
               </Text>
             </Pressable>
           </View>

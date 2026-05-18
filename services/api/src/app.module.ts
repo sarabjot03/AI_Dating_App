@@ -8,6 +8,7 @@ import { DiscoverModule } from './discover/discover.module';
 import { FeedModule } from './feed/feed.module';
 import { HealthModule } from './health/health.module';
 import { MeModule } from './me/me.module';
+import { ProfilePhotosModule } from './profile-photos/profile-photos.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -25,6 +26,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     AuthModule,
     MeModule,
+    ProfilePhotosModule,
     FeedModule,
     DiscoverModule,
     HealthModule,

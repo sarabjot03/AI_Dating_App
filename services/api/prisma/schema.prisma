@@ -29,6 +29,27 @@ model User {
   swipesFrom     Swipe[]        @relation("SwipesFrom")
   swipesTo       Swipe[]        @relation("SwipesTo")
   isSeed         Boolean        @default(false)
+  profilePhotos  ProfilePhoto[]
+}
+
+model ProfilePhoto {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cloudinaryPublicId String
+  url                String
+  thumbnailUrl       String
+  sortOrder          Int      @default(0)
+  width              Int?
+  height             Int?
+  bytes              Int?
+  mimeType           String?
+  caption            String?
+  /// Set by AI in Phase 2 when photo is in the public profile set.
+  isSelected         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum SwipeAction {
