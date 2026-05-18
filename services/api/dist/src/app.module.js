@@ -16,6 +16,7 @@ const discover_module_1 = require("./discover/discover.module");
 const feed_module_1 = require("./feed/feed.module");
 const health_module_1 = require("./health/health.module");
 const me_module_1 = require("./me/me.module");
+const profile_photos_module_1 = require("./profile-photos/profile-photos.module");
 const prisma_module_1 = require("./prisma/prisma.module");
 let AppModule = class AppModule {
 };
@@ -36,6 +37,7 @@ exports.AppModule = AppModule = __decorate([
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
             me_module_1.MeModule,
+            profile_photos_module_1.ProfilePhotosModule,
             feed_module_1.FeedModule,
             discover_module_1.DiscoverModule,
             health_module_1.HealthModule,
